@@ -11,6 +11,8 @@ import org.mockito.kotlin.any
 import org.mockito.kotlin.whenever
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest
+import org.springframework.data.domain.PageImpl
+import org.springframework.data.domain.PageRequest
 import org.springframework.http.MediaType
 import org.springframework.test.context.bean.override.mockito.MockitoBean
 import org.springframework.test.web.servlet.MockMvc
@@ -75,5 +77,36 @@ class JobControllerTest {
 
         mvc.get("/api/v1/jobs/no-such-id")
             .andExpect { status { isNotFound() } }
+    }
+
+    @Test
+    fun `목록 조회 응답에 페이징 메타 필드 포함`() {
+        val jobs = listOf(stubJob())
+        val page = PageImpl(jobs, PageRequest.of(0, 20), 1L)
+        whenever(service.list(any())).thenReturn(page)
+
+        mvc.get("/api/v1/jobs")
+            .andExpect {
+                status { isOk() }
+                jsonPath("$.items.length()") { value(1) }
+                jsonPath("$.total") { value(1) }
+                jsonPath("$.totalPages") { value(1) }
+                jsonPath("$.hasNext") { value(false) }
+                jsonPath("$.hasPrevious") { value(false) }
+            }
+    }
+
+    @Test
+    fun `빈 목록 조회 시 items가 빈 배열`() {
+        val page = PageImpl(emptyList<ImageJob>(), PageRequest.of(0, 20), 0L)
+        whenever(service.list(any())).thenReturn(page)
+
+        mvc.get("/api/v1/jobs")
+            .andExpect {
+                status { isOk() }
+                jsonPath("$.items.length()") { value(0) }
+                jsonPath("$.total") { value(0) }
+                jsonPath("$.hasNext") { value(false) }
+            }
     }
 }
