@@ -90,9 +90,8 @@ class JobSubmitterTest {
     @Test
     fun `최대 재시도 초과 시 FAILED 전이`() {
         val job = savePending()
-        // maxAttempts=3 이므로 2회 선행 실패 후 3번째 실패에서 FAILED
-        job.recordTransientFailure(Instant.EPOCH, "오류", Instant.EPOCH)
-        job.recordTransientFailure(Instant.EPOCH, "오류", Instant.EPOCH)
+        // maxAttempts=5 이므로 4회 선행 실패 후 5번째 실패에서 FAILED
+        repeat(4) { job.recordTransientFailure(Instant.EPOCH, "오류", Instant.EPOCH) }
         repository.saveAndFlush(job)
 
         whenever(client.submit(any())).thenThrow(MockWorkerException("5xx", true))
@@ -101,5 +100,30 @@ class JobSubmitterTest {
 
         val updated = repository.findById(job.id).get()
         assertThat(updated.status).isEqualTo(JobStatus.FAILED)
+    }
+
+    @Test
+    fun `이미 IN_PROGRESS인 작업은 submit 건너뜀 — 상태 가드 방어`() {
+        val job = savePending()
+        job.markSubmitted("existing-worker", Instant.now())
+        repository.saveAndFlush(job)
+
+        // client.submit이 호출되어도 상태 변경이 없어야 함
+        submitter.runOnce()
+
+        val updated = repository.findById(job.id).get()
+        assertThat(updated.status).isEqualTo(JobStatus.IN_PROGRESS)
+        assertThat(updated.workerJobId).isEqualTo("existing-worker")
+    }
+
+    @Test
+    fun `워커가 동기적으로 FAILED 응답 시 즉시 FAILED 전이`() {
+        val job = savePending()
+        whenever(client.submit(any()))
+            .thenReturn(WorkerJobSnapshot("w-1", WorkerJobStatus.FAILED, null))
+
+        submitter.runOnce()
+
+        assertThat(repository.findById(job.id).get().status).isEqualTo(JobStatus.FAILED)
     }
 }

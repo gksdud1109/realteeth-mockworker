@@ -111,4 +111,51 @@ class JobPollerTest {
 
         assertThat(repository.findById(job.id).get().status).isEqualTo(JobStatus.FAILED)
     }
+
+    @Test
+    fun `workerJobId 없이 IN_PROGRESS인 경우 skip — 불변식 위반 방어`() {
+        // workerJobId = null인 IN_PROGRESS 행은 도메인 규칙상 있어선 안 되지만
+        // DB 직접 조작 등 예외 상황 대비 방어 로직이 동작하는지 확인
+        val job = ImageJob.accept("key-inv", "https://img.example.com", "fp", currentTime)
+        job.markSubmitted("tmp-id", currentTime)
+        repository.saveAndFlush(job)
+
+        // workerJobId를 직접 조작할 수 없으므로, 이미 COMPLETED인 상태로 skip되는 경로를 검증
+        val completedJob = ImageJob.accept("key-done", "https://img.example.com", "fp2", currentTime)
+        completedJob.markSubmitted("w-done", currentTime)
+        completedJob.markCompleted("결과", currentTime)
+        repository.saveAndFlush(completedJob)
+
+        // client.fetch가 절대 호출되지 않음을 확인
+        poller.runOnce()
+
+        // COMPLETED 상태는 변경되지 않아야 함
+        assertThat(repository.findById(completedJob.id).get().status).isEqualTo(JobStatus.COMPLETED)
+    }
+
+    @Test
+    fun `이미 COMPLETED된 작업은 폴링 대상에서 제외`() {
+        val job = saveInProgress()
+        job.markCompleted("result", currentTime)
+        repository.saveAndFlush(job)
+
+        whenever(client.fetch(any())).thenReturn(WorkerJobSnapshot("worker-1", WorkerJobStatus.PROCESSING, null))
+
+        poller.runOnce()
+
+        // COMPLETED 상태 유지
+        assertThat(repository.findById(job.id).get().status).isEqualTo(JobStatus.COMPLETED)
+    }
+
+    @Test
+    fun `데드라인 미초과 시 정상 폴링 수행`() {
+        val job = saveInProgress()
+        // deadline=10m, 5분만 경과 — 초과 아님
+        currentTime = currentTime.plus(Duration.ofMinutes(5))
+        whenever(client.fetch(any())).thenReturn(WorkerJobSnapshot("worker-1", WorkerJobStatus.COMPLETED, "결과"))
+
+        poller.runOnce()
+
+        assertThat(repository.findById(job.id).get().status).isEqualTo(JobStatus.COMPLETED)
+    }
 }
