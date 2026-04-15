@@ -105,12 +105,17 @@ PENDING → FAILED
 
 | 종류 | 예시 | 처리 방식 |
 |------|------|-----------|
-| 일시적(transient) | 5xx, 429, 네트워크 오류, 타임아웃 | 지수 백오프 후 재시도 |
+| 일시적(transient) | 5xx, 429, 네트워크 오류, 타임아웃, 서킷 오픈 | 지수 백오프 후 재시도 |
 | 영구적(permanent) | 4xx(429 제외), 응답 파싱 실패 | 즉시 FAILED 처리 |
 
 **제출(submit) 재시도**: 최대 `mock-worker.submit.max-attempts`(기본 5회)까지 재시도.  
 **폴링(poll) 재시도**: 횟수 제한 없이, `mock-worker.poll.deadline`(기본 10분) 초과 시 FAILED.  
 **지수 백오프**: 초기 대기 시간 × 2^n, 상한값(ceiling)으로 제한.
+
+**서킷 브레이커(Resilience4j)**로 Mock Worker 장애 격리:  
+최근 10번 호출 중 실패율 50% 초과 시 서킷 OPEN → 30초간 호출 차단.  
+OPEN 상태에서는 `isTransient=true`로 즉시 예외를 반환해 재시도 백오프 흐름과 연동.  
+Mock Worker 장애가 지속될 때 무의미한 HTTP 호출을 차단하고 복구 시간을 확보한다.
 
 트랜잭션 경계와 외부 HTTP 호출은 분리됩니다.  
 DB 커넥션을 점유한 채로 외부 API 응답을 기다리지 않습니다.

@@ -40,6 +40,26 @@ springdoc:
 scheduling:
   enabled: ${SCHEDULING_ENABLED:true}
 
+resilience4j:
+  circuitbreaker:
+    instances:
+      mock-worker:
+        # 최근 10번의 호출 결과를 기준으로 실패율을 측정 (count-based sliding window)
+        sliding-window-size: 10
+        # 최소 5번은 호출해야 실패율 계산 시작 (초기 소수 오류로 서킷 오픈 방지)
+        minimum-number-of-calls: 5
+        # 실패율 50% 이상이면 OPEN 전이
+        failure-rate-threshold: 50
+        # 느린 응답(5초 초과)도 실패로 집계
+        slow-call-duration-threshold: 5s
+        slow-call-rate-threshold: 80
+        # OPEN 후 30초 대기, HALF_OPEN 으로 전이
+        wait-duration-in-open-state: 30s
+        # HALF_OPEN 에서 3번 호출 후 성공/실패 재판정
+        permitted-number-of-calls-in-half-open-state: 3
+        # 서킷 OPEN 시 즉시 예외 발생 (대기 없음)
+        automatic-transition-from-open-to-half-open-enabled: true
+
 mock-worker:
   base-url: ${MOCK_WORKER_BASE_URL:https://dev.realteeth.ai/mock}
   candidate-name: ${MOCK_WORKER_CANDIDATE_NAME:candidate}

@@ -37,6 +37,8 @@ dependencies {
     implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.8")
     implementation("net.javacrumbs.shedlock:shedlock-spring:6.9.2")
     implementation("net.javacrumbs.shedlock:shedlock-provider-jdbc-template:6.9.2")
+    implementation("io.github.resilience4j:resilience4j-spring-boot3:2.3.0")
+    implementation("org.springframework.boot:spring-boot-starter-aop")
     runtimeOnly("com.mysql:mysql-connector-j")
     annotationProcessor("org.springframework.boot:spring-boot-configuration-processor")
     testImplementation("org.springframework.boot:spring-boot-starter-test")
