@@ -110,11 +110,16 @@ PENDING → FAILED
 
 **제출(submit) 재시도**: 최대 `mock-worker.submit.max-attempts`(기본 5회)까지 재시도.  
 **폴링(poll) 재시도**: 횟수 제한 없이, `mock-worker.poll.deadline`(기본 10분) 초과 시 FAILED.  
+데드라인 기준은 `lastProgressAt`(마지막으로 Mock Worker가 정상 응답한 시각)이며,  
+일시적 fetch 오류 발생 시에는 갱신되지 않는다.  
+이로써 Mock Worker가 계속 장애 상태여도 데드라인이 밀리지 않고 의도한 시간 안에 FAILED 처리된다.  
 **지수 백오프**: 초기 대기 시간 × 2^n, 상한값(ceiling)으로 제한.
 
 **서킷 브레이커(Resilience4j)**로 Mock Worker 장애 격리:  
 최근 10번 호출 중 실패율 50% 초과 시 서킷 OPEN → 30초간 호출 차단.  
 OPEN 상태에서는 `isTransient=true`로 즉시 예외를 반환해 재시도 백오프 흐름과 연동.  
+4xx 등 영구 오류(`isTransient=false`)는 서킷 실패율 집계에서 제외된다.  
+요청 오류가 외부 서비스 장애 신호로 오판되어 서킷이 열리는 것을 방지한다.  
 Mock Worker 장애가 지속될 때 무의미한 HTTP 호출을 차단하고 복구 시간을 확보한다.
 
 트랜잭션 경계와 외부 HTTP 호출은 분리됩니다.  

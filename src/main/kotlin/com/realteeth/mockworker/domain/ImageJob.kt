@@ -68,6 +68,10 @@ class ImageJob protected constructor() : BaseEntity() {
     @Column(name = "next_attempt_at", nullable = false)
     var nextAttemptAt: Instant = Instant.EPOCH; internal set
 
+    /** poll 데드라인 기준. 제출 성공/PROCESSING 응답 시에만 갱신. transient 오류는 갱신하지 않는다. */
+    @Column(name = "last_progress_at", nullable = false)
+    var lastProgressAt: Instant = Instant.EPOCH; internal set
+
     companion object {
         fun accept(clientRequestKey: String, imageUrl: String, fingerprint: String, now: Instant): ImageJob =
             ImageJob().apply {
@@ -78,6 +82,7 @@ class ImageJob protected constructor() : BaseEntity() {
                 status = JobStatus.PENDING
                 attemptCount = 0
                 nextAttemptAt = now
+                lastProgressAt = now
                 createdAt = now
                 updatedAt = now
             }
@@ -88,8 +93,9 @@ class ImageJob protected constructor() : BaseEntity() {
         require(workerJobId.isNotBlank()) { "IN_PROGRESS 전이 시 workerJobId 가 필요합니다" }
         status = JobStatus.IN_PROGRESS
         this.workerJobId = workerJobId
-        attemptCount = 0 // 폴링 단계 진입 시 재시도 카운터 초기화
+        attemptCount = 0
         nextAttemptAt = now
+        lastProgressAt = now
         updatedAt = now
     }
 
@@ -129,6 +135,7 @@ class ImageJob protected constructor() : BaseEntity() {
         check(status == JobStatus.IN_PROGRESS) { "recordProgress 는 IN_PROGRESS 상태에서만 호출 가능합니다 (현재: $status)" }
         attemptCount++
         nextAttemptAt = nextPollAt
+        lastProgressAt = now
         failureReason = null
         updatedAt = now
     }

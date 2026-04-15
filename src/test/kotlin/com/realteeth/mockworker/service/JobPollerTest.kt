@@ -158,4 +158,22 @@ class JobPollerTest {
 
         assertThat(repository.findById(job.id).get().status).isEqualTo(JobStatus.COMPLETED)
     }
+
+    @Test
+    fun `일시적 오류 반복 시 데드라인은 연장되지 않음`() {
+        val job = saveInProgress()
+
+        // T+5분: transient 오류 — updatedAt 갱신, lastProgressAt 은 제출 시각 유지
+        currentTime = currentTime.plus(Duration.ofMinutes(5))
+        whenever(client.fetch(any())).thenThrow(MockWorkerException("5xx", true))
+        poller.runOnce()
+
+        assertThat(repository.findById(job.id).get().lastProgressAt).isEqualTo(job.lastProgressAt)
+
+        // T+11분 — lastProgressAt 기준 deadline(10m) 초과
+        currentTime = currentTime.plus(Duration.ofMinutes(6))
+        poller.runOnce()
+
+        assertThat(repository.findById(job.id).get().status).isEqualTo(JobStatus.FAILED)
+    }
 }

@@ -18,14 +18,11 @@ import org.springframework.stereotype.Component
 import org.springframework.transaction.support.TransactionTemplate
 
 /**
- * IN_PROGRESS 상태 작업의 진행 상황을 Mock Worker 에 폴링.
+ * IN_PROGRESS 상태 작업을 Mock Worker 에 폴링.
  *
- * 데드라인: 작업이 [MockWorkerProperties.Poll.deadline] 을 초과해 IN_PROGRESS 상태이면 FAILED 처리.
- * 데드라인은 updatedAt 기준으로 평가되므로 워커가 PROCESSING 을 계속 응답하는
- * 한 삭제되지 않는다.
- *
- * 일시적 폴링 실패는 지수 백오프로 nextAttemptAt 을 연장.
- * 영구 실패(429 제외 4xx)는 즉시 FAILED 처리.
+ * 데드라인은 lastProgressAt(마지막 정상 응답 시각) 기준으로 계산한다.
+ * transient 오류 시 updatedAt 은 바뀌지만 lastProgressAt 은 고정되므로
+ * Mock Worker 장애가 지속되어도 데드라인이 밀리지 않는다.
  */
 @Component
 class JobPoller(
@@ -69,17 +66,17 @@ class JobPoller(
         }
 
         // 데드라인 사전 체크 — 스테일 스냅샷 기반이므로 낙관적 필터 역할만 함.
-        // 실제 FAILED 판정은 TX 내부에서 fresh.updatedAt 기준으로 재검증한다.
+        // 실제 FAILED 판정은 TX 내부에서 fresh.lastProgressAt 기준으로 재검증한다.
         // 이중 검증 이유: 외부 HTTP 호출 전에 명백한 초과 케이스를 걸러내되,
         // 멀티 인스턴스 환경에서 스테일 읽기로 인한 오판을 막기 위해 TX 내부 재확인이 필수.
         val deadline = props.poll.deadline
-        if (deadline != null && job.updatedAt.plus(deadline).isBefore(Instant.now(clock))) {
+        if (deadline != null && job.lastProgressAt.plus(deadline).isBefore(Instant.now(clock))) {
             tx.executeWithoutResult { _ ->
                 val fresh = repository.findById(id).orElse(null)
                 if (fresh == null || fresh.status != JobStatus.IN_PROGRESS) return@executeWithoutResult
                 val t = Instant.now(clock)
-                // fresh.updatedAt 기준 재검증 — 스테일 스냅샷으로 인한 오판 방지
-                if (fresh.updatedAt.plus(deadline).isBefore(t)) {
+                // fresh.lastProgressAt 기준 재검증 — 일시적 오류로 인한 updatedAt 갱신과 분리
+                if (fresh.lastProgressAt.plus(deadline).isBefore(t)) {
                     fresh.markFailed("poll 데드라인 초과", t)
                     repository.save(fresh)
                     log.warn("job={} poll 데드라인 초과, FAILED 처리", id)
