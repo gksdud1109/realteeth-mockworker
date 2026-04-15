@@ -9,7 +9,6 @@ import jakarta.persistence.Enumerated
 import jakarta.persistence.Id
 import jakarta.persistence.Index
 import jakarta.persistence.Table
-import jakarta.persistence.Version
 import java.time.Instant
 import java.util.UUID
 
@@ -30,7 +29,7 @@ import java.util.UUID
         Index(name = "ix_image_job_status_next_attempt", columnList = "status, next_attempt_at"),
     ],
 )
-class ImageJob protected constructor() {
+class ImageJob protected constructor() : BaseEntity() {
 
     @Id
     @Column(name = "id", length = 36, nullable = false, updatable = false)
@@ -68,16 +67,6 @@ class ImageJob protected constructor() {
     /** 백그라운드 워커가 이 행을 다시 처리할 수 있는 가장 이른 시각. */
     @Column(name = "next_attempt_at", nullable = false)
     var nextAttemptAt: Instant = Instant.EPOCH; internal set
-
-    @Column(name = "created_at", nullable = false, updatable = false)
-    var createdAt: Instant = Instant.EPOCH; internal set
-
-    @Column(name = "updated_at", nullable = false)
-    var updatedAt: Instant = Instant.EPOCH; internal set
-
-    @Version
-    @Column(name = "version", nullable = false)
-    var version: Long = 0; internal set
 
     companion object {
         fun accept(clientRequestKey: String, imageUrl: String, fingerprint: String, now: Instant): ImageJob =
