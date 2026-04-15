@@ -1,12 +1,14 @@
 package com.realteeth.mockworker.web
 
 import com.realteeth.mockworker.domain.exception.BusinessException
+import jakarta.validation.ConstraintViolationException
 import java.time.Instant
 import org.slf4j.LoggerFactory
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
 import org.springframework.http.converter.HttpMessageNotReadableException
 import org.springframework.web.bind.MethodArgumentNotValidException
+import org.springframework.web.method.annotation.HandlerMethodValidationException
 import org.springframework.web.bind.annotation.ExceptionHandler
 import org.springframework.web.bind.annotation.RestControllerAdvice
 
@@ -29,6 +31,22 @@ class GlobalExceptionHandler {
             HttpStatus.BAD_REQUEST,
             "validation_failed",
             e.bindingResult.allErrors.firstOrNull()?.defaultMessage ?: "잘못된 요청입니다",
+        )
+
+    @ExceptionHandler(HandlerMethodValidationException::class)
+    fun handlerMethodValidation(e: HandlerMethodValidationException): ResponseEntity<ErrorResponse> =
+        build(
+            HttpStatus.BAD_REQUEST,
+            "validation_failed",
+            e.allErrors.firstOrNull()?.defaultMessage ?: "잘못된 요청입니다",
+        )
+
+    @ExceptionHandler(ConstraintViolationException::class)
+    fun constraintViolation(e: ConstraintViolationException): ResponseEntity<ErrorResponse> =
+        build(
+            HttpStatus.BAD_REQUEST,
+            "validation_failed",
+            e.constraintViolations.firstOrNull()?.message ?: "잘못된 요청입니다",
         )
 
     @ExceptionHandler(Exception::class)

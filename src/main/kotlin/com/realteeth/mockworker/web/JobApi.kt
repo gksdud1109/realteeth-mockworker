@@ -6,6 +6,8 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse
 import io.swagger.v3.oas.annotations.responses.ApiResponses
 import io.swagger.v3.oas.annotations.tags.Tag
 import jakarta.validation.Valid
+import jakarta.validation.constraints.Min
+import jakarta.validation.constraints.Positive
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
@@ -46,7 +48,9 @@ interface JobApi {
     @GetMapping
     @Operation(summary = "목록 조회", description = "작업 목록을 페이지 단위로 조회합니다.")
     fun list(
+        @Min(0, message = "page 는 0 이상이어야 합니다")
         @RequestParam(defaultValue = "0") page: Int,
+        @Positive(message = "size 는 1 이상이어야 합니다")
         @RequestParam(defaultValue = "20") size: Int,
     ): JobController.JobListResponse
 }

@@ -117,4 +117,22 @@ class JobControllerTest {
                 jsonPath("$.hasNext") { value(false) }
             }
     }
+
+    @Test
+    fun `목록 조회 시 page가 음수면 400`() {
+        mvc.get("/api/v1/jobs?page=-1&size=20")
+            .andExpect {
+                status { isBadRequest() }
+                jsonPath("$.error") { value("validation_failed") }
+            }
+    }
+
+    @Test
+    fun `목록 조회 시 size가 0이면 400`() {
+        mvc.get("/api/v1/jobs?page=0&size=0")
+            .andExpect {
+                status { isBadRequest() }
+                jsonPath("$.error") { value("validation_failed") }
+            }
+    }
 }

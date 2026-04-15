@@ -5,9 +5,11 @@ import com.realteeth.mockworker.service.ImageJobService.Companion.fingerprint
 import org.springframework.data.domain.PageRequest
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
+import org.springframework.validation.annotation.Validated
 import org.springframework.web.bind.annotation.RestController
 
 @RestController
+@Validated
 class JobController(private val service: ImageJobService) : JobApi {
 
     override fun create(idempotencyKey: String?, body: CreateJobRequest): ResponseEntity<JobResponse> {

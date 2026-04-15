@@ -30,7 +30,7 @@ docker-compose up --build
 |--------|--------|------|
 | `MOCK_WORKER_CANDIDATE_NAME` | `candidate` | API 키 발급 시 사용할 이름 |
 | `MOCK_WORKER_EMAIL` | `candidate@example.com` | API 키 발급 시 사용할 이메일 |
-| `MOCK_WORKER_API_KEY` | *(자동 발급)* | 미설정 시 애플리케이션 시작 시 자동 발급 |
+| `MOCK_WORKER_API_KEY` | *(자동 발급)* | 미설정 시 첫 Mock Worker 호출 시 자동 발급 |
 | `SCHEDULING_ENABLED` | `true` | `false`로 설정하면 이 인스턴스의 스케줄러 비활성화 |
 
 ### 로컬 개발 (IDE)
@@ -51,6 +51,11 @@ docker-compose up mysql
 | `POST` | `/api/v1/jobs` | 이미지 처리 작업 접수 |
 | `GET` | `/api/v1/jobs/{id}` | 작업 단건 조회 |
 | `GET` | `/api/v1/jobs` | 작업 목록 조회 (페이지네이션) |
+
+목록 조회 파라미터:
+
+- `page`: 0 이상
+- `size`: 1 이상, 최대 100
 
 ### 작업 접수 예시
 
@@ -229,21 +234,33 @@ Exactly-Once를 보장하려면 Mock Worker의 멱등성 키 지원이 필요합
 
 ```
 Client
-  │ POST /api/v1/jobs
-  ▼
-JobController → ImageJobService → DB (image_job 테이블)
-                                      ▲
-                              (PENDING 행 조회)
-                                      │
-JobSubmitter ─── HTTP POST ──► Mock Worker
-     │              ↑ 성공
-     │         workerJobId 저장 (IN_PROGRESS 전이)
-     │
-JobPoller ─── HTTP GET ──► Mock Worker (workerJobId로 조회)
-                               │
-                          COMPLETED / FAILED / PROCESSING
-                               │
-                         DB 상태 업데이트
+  │
+  ├─ POST /api/v1/jobs ───────────────► JobController → ImageJobService → DB (PENDING 저장)
+  ├─ GET /api/v1/jobs/{id} ───────────► JobController → ImageJobService → DB 조회
+  └─ GET /api/v1/jobs ────────────────► JobController → ImageJobService → DB 조회
+
+Scheduler (JobSubmitter)
+  │
+  ├─ DB 에서 due PENDING 작업 조회
+  ├─ HTTP POST /mock/process ─────────► Mock Worker
+  └─ 제출 결과를 DB 에 반영
+       - PROCESSING  → IN_PROGRESS + workerJobId 저장
+       - COMPLETED   → 즉시 COMPLETED 저장
+       - FAILED      → 즉시 FAILED 저장
+
+Scheduler (JobPoller)
+  │
+  ├─ DB 에서 due IN_PROGRESS 작업 조회
+  ├─ HTTP GET /mock/process/{id} ────► Mock Worker
+  └─ 폴링 결과를 DB 에 반영
+       - PROCESSING  → nextAttemptAt 갱신, lastProgressAt 갱신
+       - COMPLETED   → COMPLETED 저장
+       - FAILED      → FAILED 저장
+
+MockWorkerClient
+  ├─ API Key lazy 발급 / 캐시
+  ├─ 401 시 API Key 갱신 후 1회 재시도
+  └─ timeout / 5xx / 429 는 transient, 4xx / 파싱 오류는 permanent 로 분류
 ```
 
 ---
