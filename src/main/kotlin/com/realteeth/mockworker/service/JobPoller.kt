@@ -66,15 +66,22 @@ class JobPoller(
             return
         }
 
-        // 데드라인 체크 — 외부 호출 전에 수행해 불필요한 작업 방지.
-        val now = Instant.now(clock)
-        if (props.poll.deadline != null && job.updatedAt.plus(props.poll.deadline).isBefore(now)) {
+        // 데드라인 사전 체크 — 스테일 스냅샷 기반이므로 낙관적 필터 역할만 함.
+        // 실제 FAILED 판정은 TX 내부에서 fresh.updatedAt 기준으로 재검증한다.
+        // 이중 검증 이유: 외부 HTTP 호출 전에 명백한 초과 케이스를 걸러내되,
+        // 멀티 인스턴스 환경에서 스테일 읽기로 인한 오판을 막기 위해 TX 내부 재확인이 필수.
+        val deadline = props.poll.deadline
+        if (deadline != null && job.updatedAt.plus(deadline).isBefore(Instant.now(clock))) {
             tx.executeWithoutResult { _ ->
                 val fresh = repository.findById(id).orElse(null)
                 if (fresh == null || fresh.status != JobStatus.IN_PROGRESS) return@executeWithoutResult
-                fresh.markFailed("poll 데드라인 초과", Instant.now(clock))
-                repository.save(fresh)
-                log.warn("job={} poll 데드라인 초과, FAILED 처리", id)
+                val t = Instant.now(clock)
+                // fresh.updatedAt 기준 재검증 — 스테일 스냅샷으로 인한 오판 방지
+                if (fresh.updatedAt.plus(deadline).isBefore(t)) {
+                    fresh.markFailed("poll 데드라인 초과", t)
+                    repository.save(fresh)
+                    log.warn("job={} poll 데드라인 초과, FAILED 처리", id)
+                }
             }
             return
         }

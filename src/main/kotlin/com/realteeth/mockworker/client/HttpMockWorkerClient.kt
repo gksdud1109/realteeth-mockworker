@@ -70,7 +70,7 @@ class HttpMockWorkerClient(
     }
 
     private fun toSnapshot(body: Map<*, *>?): WorkerJobSnapshot {
-        requireNotNull(body) { throw MockWorkerException("mock-worker 응답 body 없음", false) }
+        body ?: throw MockWorkerException("mock-worker 응답 body 없음", false)
         val id = body["jobId"] ?: throw MockWorkerException("mock-worker 응답 파싱 실패: $body", false)
         val status = body["status"] ?: throw MockWorkerException("mock-worker 응답 파싱 실패: $body", false)
         val result = body["result"] as? String
