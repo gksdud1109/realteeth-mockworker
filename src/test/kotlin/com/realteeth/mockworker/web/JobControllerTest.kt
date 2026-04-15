@@ -2,9 +2,9 @@ package com.realteeth.mockworker.web
 
 import com.realteeth.mockworker.domain.ImageJob
 import com.realteeth.mockworker.domain.JobStatus
-import com.realteeth.mockworker.service.IdempotencyConflictException
+import com.realteeth.mockworker.domain.exception.BusinessException
+import com.realteeth.mockworker.domain.exception.JobErrorCode
 import com.realteeth.mockworker.service.ImageJobService
-import com.realteeth.mockworker.service.JobNotFoundException
 import java.time.Instant
 import org.junit.jupiter.api.Test
 import org.mockito.kotlin.any
@@ -60,7 +60,7 @@ class JobControllerTest {
 
     @Test
     fun `멱등성 키 충돌 시 409 반환`() {
-        whenever(service.accept(any(), any())).thenThrow(IdempotencyConflictException("충돌"))
+        whenever(service.accept(any(), any())).thenThrow(BusinessException(JobErrorCode.IDEMPOTENCY_CONFLICT))
 
         mvc.post("/api/v1/jobs") {
             contentType = MediaType.APPLICATION_JSON
@@ -71,7 +71,7 @@ class JobControllerTest {
 
     @Test
     fun `존재하지 않는 id 조회 시 404`() {
-        whenever(service.get(any())).thenThrow(JobNotFoundException("no-such-id"))
+        whenever(service.get(any())).thenThrow(BusinessException(JobErrorCode.JOB_NOT_FOUND, "no-such-id"))
 
         mvc.get("/api/v1/jobs/no-such-id")
             .andExpect { status { isNotFound() } }

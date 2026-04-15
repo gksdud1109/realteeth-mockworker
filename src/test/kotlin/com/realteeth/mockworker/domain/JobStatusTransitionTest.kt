@@ -1,5 +1,6 @@
 package com.realteeth.mockworker.domain
 
+import com.realteeth.mockworker.domain.exception.BusinessException
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
@@ -47,7 +48,7 @@ class JobStatusTransitionTest {
         job.markSubmitted("worker-1", now)
         job.markCompleted("result", now)
         assertThatThrownBy { job.markFailed("오류", now) }
-            .isInstanceOf(InvalidJobStateException::class.java)
+            .isInstanceOf(BusinessException::class.java)
     }
 
     @Test
@@ -55,14 +56,14 @@ class JobStatusTransitionTest {
         val job = pendingJob()
         job.markFailed("오류", now)
         assertThatThrownBy { job.markSubmitted("worker-1", now) }
-            .isInstanceOf(InvalidJobStateException::class.java)
+            .isInstanceOf(BusinessException::class.java)
     }
 
     @Test
     fun `PENDING 에서 COMPLETED 직접 전이 불가`() {
         val job = pendingJob()
         assertThatThrownBy { job.markCompleted("result", now) }
-            .isInstanceOf(InvalidJobStateException::class.java)
+            .isInstanceOf(BusinessException::class.java)
     }
 
     @Test

@@ -1,5 +1,7 @@
 package com.realteeth.mockworker.domain
 
+import com.realteeth.mockworker.domain.exception.BusinessException
+import com.realteeth.mockworker.domain.exception.JobErrorCode
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
 import jakarta.persistence.EnumType
@@ -144,7 +146,10 @@ class ImageJob protected constructor() {
 
     private fun requireTransition(next: JobStatus) {
         if (!status.canTransitionTo(next)) {
-            throw InvalidJobStateException("허용되지 않는 상태 전이: $status → $next (job=$id)")
+            throw BusinessException(
+                JobErrorCode.INVALID_STATE_TRANSITION,
+                "허용되지 않는 상태 전이: $status → $next (job=$id)",
+            )
         }
     }
 

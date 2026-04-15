@@ -1,6 +1,8 @@
 package com.realteeth.mockworker.service
 
 import com.realteeth.mockworker.domain.ImageJobRepository
+import com.realteeth.mockworker.domain.exception.BusinessException
+import com.realteeth.mockworker.domain.exception.JobErrorCode
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
@@ -29,7 +31,8 @@ class ImageJobServiceTest {
         val key = "idem-key-2"
         service.accept(key, "https://img.example.com/a.png")
         assertThatThrownBy { service.accept(key, "https://img.example.com/b.png") }
-            .isInstanceOf(IdempotencyConflictException::class.java)
+            .isInstanceOf(BusinessException::class.java)
+            .satisfies({ e -> assertThat((e as BusinessException).errorCode).isEqualTo(JobErrorCode.IDEMPOTENCY_CONFLICT) })
     }
 
     @Test
@@ -40,8 +43,9 @@ class ImageJobServiceTest {
     }
 
     @Test
-    fun `존재하지 않는 id 조회 시 JobNotFoundException`() {
+    fun `존재하지 않는 id 조회 시 404 에러코드`() {
         assertThatThrownBy { service.get("nonexistent-id") }
-            .isInstanceOf(JobNotFoundException::class.java)
+            .isInstanceOf(BusinessException::class.java)
+            .satisfies({ e -> assertThat((e as BusinessException).errorCode).isEqualTo(JobErrorCode.JOB_NOT_FOUND) })
     }
 }

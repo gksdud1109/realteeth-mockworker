@@ -1,8 +1,6 @@
 package com.realteeth.mockworker.web
 
-import com.realteeth.mockworker.domain.InvalidJobStateException
-import com.realteeth.mockworker.service.IdempotencyConflictException
-import com.realteeth.mockworker.service.JobNotFoundException
+import com.realteeth.mockworker.domain.exception.BusinessException
 import java.time.Instant
 import org.slf4j.LoggerFactory
 import org.springframework.http.HttpStatus
@@ -17,17 +15,9 @@ class GlobalExceptionHandler {
 
     private val log = LoggerFactory.getLogger(javaClass)
 
-    @ExceptionHandler(JobNotFoundException::class)
-    fun notFound(e: JobNotFoundException): ResponseEntity<ErrorResponse> =
-        build(HttpStatus.NOT_FOUND, "not_found", e.message)
-
-    @ExceptionHandler(IdempotencyConflictException::class)
-    fun conflict(e: IdempotencyConflictException): ResponseEntity<ErrorResponse> =
-        build(HttpStatus.CONFLICT, "idempotency_conflict", e.message)
-
-    @ExceptionHandler(InvalidJobStateException::class)
-    fun invalidState(e: InvalidJobStateException): ResponseEntity<ErrorResponse> =
-        build(HttpStatus.CONFLICT, "invalid_state", e.message)
+    @ExceptionHandler(BusinessException::class)
+    fun businessException(e: BusinessException): ResponseEntity<ErrorResponse> =
+        build(e.errorCode.status, e.errorCode.code, e.message)
 
     @ExceptionHandler(HttpMessageNotReadableException::class)
     fun notReadable(e: HttpMessageNotReadableException): ResponseEntity<ErrorResponse> =

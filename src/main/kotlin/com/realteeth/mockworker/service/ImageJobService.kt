@@ -2,11 +2,12 @@ package com.realteeth.mockworker.service
 
 import com.realteeth.mockworker.domain.ImageJob
 import com.realteeth.mockworker.domain.ImageJobRepository
+import com.realteeth.mockworker.domain.exception.BusinessException
+import com.realteeth.mockworker.domain.exception.JobErrorCode
 import java.nio.charset.StandardCharsets
 import java.security.MessageDigest
 import java.time.Clock
 import java.time.Instant
-import org.slf4j.LoggerFactory
 import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.data.domain.Page
 import org.springframework.data.domain.Pageable
@@ -27,8 +28,6 @@ class ImageJobService(
     private val repository: ImageJobRepository,
     private val clock: Clock,
 ) {
-    private val log = LoggerFactory.getLogger(javaClass)
-
     @Transactional
     fun accept(idempotencyKey: String, imageUrl: String): ImageJob {
         val fingerprint = fingerprint(imageUrl)
@@ -53,14 +52,17 @@ class ImageJobService(
 
     @Transactional(readOnly = true)
     fun get(jobId: String): ImageJob =
-        repository.findById(jobId).orElseThrow { JobNotFoundException(jobId) }
+        repository.findById(jobId).orElseThrow {
+            BusinessException(JobErrorCode.JOB_NOT_FOUND, "작업을 찾을 수 없습니다: $jobId")
+        }
 
     @Transactional(readOnly = true)
     fun list(pageable: Pageable): Page<ImageJob> = repository.findAll(pageable)
 
     private fun verifyFingerprintOrThrow(existing: ImageJob, fingerprint: String): ImageJob {
         if (existing.requestFingerprint != fingerprint) {
-            throw IdempotencyConflictException(
+            throw BusinessException(
+                JobErrorCode.IDEMPOTENCY_CONFLICT,
                 "동일 멱등성 키로 다른 페이로드가 전달됨: ${existing.clientRequestKey}",
             )
         }
