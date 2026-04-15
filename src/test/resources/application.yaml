@@ -1,3 +1,6 @@
+scheduling:
+  enabled: false   # 테스트에서 ShedLock 락 획득 없이 스케줄러 메서드를 직접 호출
+
 spring:
   datasource:
     url: jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1;MODE=MySQL

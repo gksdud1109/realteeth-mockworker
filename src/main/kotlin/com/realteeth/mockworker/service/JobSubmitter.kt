@@ -9,6 +9,7 @@ import com.realteeth.mockworker.domain.ImageJobRepository
 import com.realteeth.mockworker.domain.JobStatus
 import java.time.Clock
 import java.time.Instant
+import net.javacrumbs.shedlock.spring.annotation.SchedulerLock
 import org.slf4j.LoggerFactory
 import org.springframework.data.domain.PageRequest
 import org.springframework.orm.ObjectOptimisticLockingFailureException
@@ -45,6 +46,7 @@ class JobSubmitter(
     )
 
     @Scheduled(fixedDelayString = "\${mock-worker.submit.scheduler-delay-ms:1000}")
+    @SchedulerLock(name = "job-submitter", lockAtMostFor = "PT10S", lockAtLeastFor = "PT1S")
     fun runOnce() {
         val dueIds = tx.execute { _ ->
             repository.findDueByStatus(JobStatus.PENDING, Instant.now(clock), PageRequest.of(0, BATCH_SIZE))

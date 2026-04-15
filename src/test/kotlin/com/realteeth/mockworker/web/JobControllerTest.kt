@@ -47,6 +47,14 @@ class JobControllerTest {
     }
 
     @Test
+    fun `imageUrl 이 URL 형식이 아니면 400`() {
+        mvc.post("/api/v1/jobs") {
+            contentType = MediaType.APPLICATION_JSON
+            content = """{"imageUrl":"not-a-url"}"""
+        }.andExpect { status { isBadRequest() } }
+    }
+
+    @Test
     fun `정상 접수 시 202 반환`() {
         whenever(service.accept(any(), any())).thenReturn(stubJob())
 

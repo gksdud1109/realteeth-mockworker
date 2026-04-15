@@ -14,6 +14,11 @@ spring:
         jdbc:
           time_zone: UTC
     open-in-view: false
+  sql:
+    init:
+      # shedlock 테이블 생성 (JPA로 관리되지 않으므로 별도 스크립트로 생성)
+      mode: always
+      schema-locations: classpath:schema.sql
 
 server:
   port: ${SERVER_PORT:8080}
@@ -29,6 +34,11 @@ springdoc:
     path: /docs
   api-docs:
     path: /api-docs
+
+# scheduling.enabled: false 로 설정하면 이 인스턴스의 스케줄러가 비활성화됨.
+# 멀티 인스턴스 환경에서 특정 인스턴스에서만 스케줄러를 실행할 때 사용.
+scheduling:
+  enabled: ${SCHEDULING_ENABLED:true}
 
 mock-worker:
   base-url: ${MOCK_WORKER_BASE_URL:https://dev.realteeth.ai/mock}
