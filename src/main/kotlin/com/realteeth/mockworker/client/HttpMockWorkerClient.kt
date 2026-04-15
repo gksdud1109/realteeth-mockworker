@@ -56,7 +56,7 @@ class HttpMockWorkerClient(
         }
     }
 
-    private fun classify(e: Exception, label: String): MockWorkerException = when (e) {
+    internal fun classify(e: Exception, label: String): MockWorkerException = when (e) {
         is RestClientResponseException -> {
             val code = e.statusCode.value()
             MockWorkerException(
@@ -69,7 +69,7 @@ class HttpMockWorkerClient(
         else -> MockWorkerException("mock-worker $label 예상치 못한 오류", true, e)
     }
 
-    private fun toSnapshot(body: Map<*, *>?): WorkerJobSnapshot {
+    internal fun toSnapshot(body: Map<*, *>?): WorkerJobSnapshot {
         body ?: throw MockWorkerException("mock-worker 응답 body 없음", false)
         val id = body["jobId"] ?: throw MockWorkerException("mock-worker 응답 파싱 실패: $body", false)
         val status = body["status"] ?: throw MockWorkerException("mock-worker 응답 파싱 실패: $body", false)
